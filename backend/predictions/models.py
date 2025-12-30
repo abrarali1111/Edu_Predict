@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class Student(models.Model):
@@ -110,3 +111,40 @@ class Student(models.Model):
             'Inflation rate': self.inflation_rate,
             'GDP': self.gdp,
         }
+
+
+class SupportTicket(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tickets')
+    subject = models.CharField(max_length=200)
+    message = models.TextField()
+    status = models.CharField(max_length=20, default='Open', choices=[
+        ('Open', 'Open'),
+        ('In Progress', 'In Progress'),
+        ('Resolved', 'Resolved'),
+        ('Closed', 'Closed')
+    ])
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.subject} - {self.status}"
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    type = models.CharField(max_length=20, default='info', choices=[
+        ('info', 'Info'),
+        ('warning', 'Warning'),
+        ('success', 'Success'),
+        ('error', 'Error')
+    ])
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title

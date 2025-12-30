@@ -149,3 +149,88 @@ def health_check(request):
         'status': 'healthy',
         'ml_models_loaded': models_available,
     })
+
+
+from rest_framework.parsers import MultiPartParser, FormParser
+import csv
+import io
+
+class BatchUploadView(APIView):
+    """
+    POST /api/upload/
+    Upload a CSV file containing student data for batch processing.
+    """
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.IsAuthenticated, IsTeacherOrAdmin]
+
+    def post(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not file_obj.name.endswith('.csv'):
+            return Response({'error': 'File must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            decoded_file = file_obj.read().decode('utf-8')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+            
+            check_models_available() # Ensure models are loaded
+            
+            processed_count = 0
+            high_risk_count = 0
+            errors = []
+
+            for row in reader:
+                try:
+                    # Clean and validate row data
+                    # Map CSV headers to model fields if necessary, assuming matching headers for now
+                    # We utilize the Serializer to validate and transform data
+                    
+                    # Convert keys to lowercase/underscore if needed, or assume correct headers
+                    # For mapped fields, we might need a mapping strategy. 
+                    # Here we assume the CSV headers MATCH the JSON field names expected by serializer.
+                    
+                    # Basic type conversion for serializer
+                    data = {}
+                    for k, v in row.items():
+                        if v.strip() == '': continue
+                        try:
+                            data[k] = float(v) # Most fields are numbers
+                        except ValueError:
+                            data[k] = v
+
+                    serializer = PredictionInputSerializer(data=data)
+                    if serializer.is_valid():
+                        model_data = serializer.to_model_format()
+                        result = predict_student_status(model_data)
+                        
+                        dropout_prob = result['dropout_probability']
+                        if dropout_prob > 0.7:
+                            high_risk_count += 1
+                        
+                        # Save Student Record
+                        student_data = serializer.validated_data
+                        Student.objects.create(
+                            user=request.user,
+                            last_prediction=result['predicted_class'],
+                            last_dropout_probability=dropout_prob,
+                            **student_data
+                        )
+                        processed_count += 1
+                    else:
+                        errors.append(f"Row {processed_count + 1}: {serializer.errors}")
+
+                except Exception as e:
+                    errors.append(f"Row {processed_count + 1}: {str(e)}")
+
+            return Response({
+                'message': 'Batch processing completed',
+                'processed_count': processed_count,
+                'high_risk_count': high_risk_count,
+                'errors': errors[:10] # Limit error response
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
