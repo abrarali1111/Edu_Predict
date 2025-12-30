@@ -20,7 +20,7 @@ class PredictView(APIView):
     POST /api/predict/
     Accepts JSON student data and returns dropout prediction.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated, IsTeacherOrAdmin]
     
     def post(self, request):
         serializer = PredictionInputSerializer(data=request.data)
@@ -75,7 +75,7 @@ class StudentListCreateView(generics.ListCreateAPIView):
     GET /api/students/ - List student records
     POST /api/students/ - Create new student record
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -116,7 +116,7 @@ class ClassAverageView(APIView):
     GET /api/class-average/
     Returns class average grades for radar chart comparison.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
         averages = Student.objects.aggregate(
@@ -141,7 +141,7 @@ class ClassAverageView(APIView):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.AllowAny])
+@permission_classes([permissions.IsAuthenticated])
 def health_check(request):
     """Health check endpoint."""
     models_available = check_models_available()

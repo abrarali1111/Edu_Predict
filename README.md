@@ -2,6 +2,10 @@
 
 A full-stack application for predicting student dropout risk using machine learning.
 
+
+Dataset Link: https://www.kaggle.com/datasets/thedevastator/higher-education-predictors-of-student-retention
+
+
 ## Project Structure
 
 ```

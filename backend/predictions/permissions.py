@@ -15,8 +15,7 @@ class IsAdminUser(permissions.BasePermission):
 
 class IsTeacherOrAdmin(permissions.BasePermission):
     """
-    Permission class for Teacher or Admin group members.
-    Allows view and predict access.
+    Custom permission to only allow teachers, analysts, or admins to access view.
     """
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
@@ -24,31 +23,26 @@ class IsTeacherOrAdmin(permissions.BasePermission):
         
         return (
             request.user.is_superuser or
-            request.user.groups.filter(name__in=['Admin', 'Teacher']).exists()
+            request.user.groups.filter(name__in=['Admin', 'Teacher', 'Analyst']).exists()
         )
 
 
 class IsOwnerOrTeacherOrAdmin(permissions.BasePermission):
     """
-    Permission class that allows:
-    - Admin/Teacher: Full access
-    - Student: Access only their own records
+    Custom permission to allow owners of an object to edit it.
+    Teachers, Analysts, and Admins can also access/edit.
     """
-    def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated
-    
     def has_object_permission(self, request, view, obj):
-        # Admin and Teacher have full access
+        # Read permissions are allowed to any request,
+        # so we'll always allow GET, HEAD or OPTIONS requests.
+        # if request.method in permissions.SAFE_METHODS:
+        #     return True
+
+        # Write permissions are only allowed to the owner of the snippet.
         if request.user.is_superuser:
             return True
-        
-        if request.user.groups.filter(name__in=['Admin', 'Teacher']).exists():
+            
+        if request.user.groups.filter(name__in=['Admin', 'Teacher', 'Analyst']).exists():
             return True
-        
-        # Students can only access their own data
-        # For safe methods (GET, HEAD, OPTIONS), students can view their own data
-        if request.method in permissions.SAFE_METHODS:
-            return obj.user == request.user
-        
-        # For unsafe methods, only owner can modify (but typically we'd restrict this)
+            
         return obj.user == request.user
